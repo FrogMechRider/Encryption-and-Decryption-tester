@@ -1,6 +1,6 @@
-# Encryption and Decryption tester
+# Encryption and Decryption Tester
 
-Made for beginners to visualize what encryption looks like. Provides output of encryption in ciphertext and the decryption of plaintext. Test Symmetric and Assmmetric encryption; Hashing; File encryption and decryption (NOTE: Encrypting your file will delete the original file. Do not use on sensitive or important files.)
+Made for beginners to visualize what encryption looks like. Provides output of encryption in ciphertext and the decryption of plaintext. Test Symmetric and Asymmetric encryption; Hashing; File encryption and decryption (NOTE: Encrypting your file will delete the original file. Do not use on sensitive or important files.)
 
 # Installation
 
