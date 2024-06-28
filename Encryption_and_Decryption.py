@@ -40,9 +40,20 @@ def generate_rsa_keys():
         backend=default_backend()
     )
     public_key = private_key.public_key()
-    return private_key, public_key
+    private_key_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
 
-def encrypt_rsa(public_key, plaintext):
+    public_key_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    return private_key_pem, public_key_pem
+
+def encrypt_rsa(public_key_pem, plaintext):
+    public_key = serialization.load_pem_public_key(public_key_pem, backend=default_backend())
     ciphertext = public_key.encrypt(
         plaintext.encode(),
         rsa_padding.OAEP(
@@ -51,18 +62,19 @@ def encrypt_rsa(public_key, plaintext):
             label=None
         )
     )
-    return ciphertext
+    return ciphertext.hex()
 
-def decrypt_rsa(private_key, ciphertext):
-    plaintext = private_key.decrypt(
-        ciphertext,
+def decrypt_rsa(private_key_pem, ciphertext):
+    private_key = serialization.load_pem_private_key(private_key_pem, password=None, backend=default_backend())
+    decrypted_data = private_key.decrypt(
+        bytes.fromhex(ciphertext),
         rsa_padding.OAEP(
             mgf=rsa_padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None
         )
     )
-    return plaintext.decode()
+    return decrypted_data.decode()
 
 # Hashing (SHA-256)
 def hash_sha256(data):
@@ -77,18 +89,21 @@ def encrypt_file(file_path, key):
     ciphertext = encrypt_aes(key, plaintext.decode())
     with open(file_path + ".enc", 'wb') as file:
         file.write(ciphertext)
+    os.remove(file_path) # delete the original file
 
 def decrypt_file(encrypted_file_path, key):
     with open(encrypted_file_path, 'rb') as file:
         ciphertext = file.read()
     plaintext = decrypt_aes(key, ciphertext)
-    original_file_path = encrypted_file_path.replace(".enc","")
+    original_file_path = encrypted_file_path.replace(".enc", "")
     with open(original_file_path, 'wb') as file:
         file.write(plaintext.encode())
 
 #CLI for users
 def main():
+
     while True:
+        print("---------------------------------------------------")
         print("\nData Encryption and Decryption Tool")
         print("1. Symmetric Encryption (AES)")
         print("2. Asymmetric Encryption (RSA)")
@@ -97,41 +112,67 @@ def main():
         print("5. File Decryption")
         print("6. Exit")
         choice = input("Choose an option: ")
+        print("---------------------------------------------------")
 
         if choice == '1':
             key = generate_key()
+            print(f"Generated key: {key.hex()}")
+            print(" ")
             plaintext = input("Enter plaintext: ")
+            print(" ")
             ciphertext = encrypt_aes(key, plaintext)
-            print(f"Ciphertext: {ciphertext}")
+            print(f"Ciphertext: {ciphertext.hex()}")
+            print(" ")
+            key = bytes.fromhex(input("Enter the key for decryption: "))
+            ciphertext = bytes.fromhex(input("Enter the ciphertext for decryption: "))
             decrypted_text = decrypt_aes(key, ciphertext)
+            print(" ")
             print(f"Decrypted text: {decrypted_text}")
 
         elif choice == '2':
-            private_key, public_key = generate_rsa_keys()
+            private_key_pem, public_key_pem = generate_rsa_keys()
+            print(f"Generated private key (hex):{private_key_pem.hex()}")
+            print(" ")
+            print(f"Public key (hex): {public_key_pem.hex()}")
+            print (" ")
             plaintext = input("Enter the plaintext: ")
-            ciphertext = encrypt_rsa(public_key, plaintext)
+            ciphertext = encrypt_rsa(public_key_pem, plaintext)
+            print(" ")
             print(f"Ciphertext: {ciphertext}")
-            decrypted_text = decrypt_rsa(private_key, ciphertext)
+            print(" ")
+            private_key_pem = bytes.fromhex(input("Enter the private key (hex) for decryption: "))
+            print(" ")
+            ciphertext = input("Enter the ciphertext (hex) for decryption: ")
+            decrypted_text = decrypt_rsa(private_key_pem, ciphertext)
+            print(" ")
             print(f"Decrypted text: {decrypted_text}")
 
         elif choice == '3':
             data = input("Enter data to hash: ")
+            print(" ")
             hashed_data = hash_sha256(data)
             print(f"Hashed data: {hashed_data}")
 
         elif choice == '4':
-            file_path = input("Enter the file path to enccrypt: ")
-            key = generate_key()
-            encrypt_file(file_path, key)
-            print(f"File encrypted successfully . Key: {key}")
+            file_path = input("Enter the file path to encrypt: ")
+            print(" ")
+            aes_key = generate_key()
+            encrypt_file(file_path, aes_key)
+            print(f"File encrypted successfully. Key: {aes_key.hex()}")
+
 
         elif choice == '5':
-            file_pth = input("Enter the encrypted file path: ")
-            key = input("Enter the key: ")
-            key = bytes(key, 'utf-8') # Convert string key to bytes
+            file_path = input("Enter the encrypted file path: ")
+            key_hex = input("Enter the key: ")
+            print(" ")
+            try:
+                key = bytes.fromhex(key_hex) # Convert hex string to bytes
+            except ValueError:
+                print("Invalid key format. Please ensure the key is in hex format.")
+                continue
             decrypt_file(file_path, key)
             print("File decrypted successfully.")
-        
+
         elif choice == '6':
             break
 
